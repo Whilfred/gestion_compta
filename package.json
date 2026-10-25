@@ -1,0 +1,19 @@
+{
+  "name": "compta-ecom",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "db:init": "psql \"$DATABASE_URL\" -f schema.sql",
+    "db:demo": "node scripts/seed-demo.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "next": "14.2.35",
+    "pg": "^8.23.1",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  }
+}
