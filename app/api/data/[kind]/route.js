@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic'
 
 const KINDS = ['ventes', 'produits', 'publicite', 'charges']
 const STATUSES = ['en_attente', 'en_cours', 'livree', 'non_livree', 'retour']
-const OUT = (s) => !CANCELED.includes(s)            // la vente sort du stock et compte dans le CA
+const OUT = (s) => !CANCELED.includes(s)            // la vente sort du stock
 const CANCELED_SQL = CANCELED.map((s) => `'${s}'`).join(',')
 
 class Bad extends Error {}
@@ -23,12 +23,10 @@ const date = (v) => {
     ? { ok: true, value: v } : { ok: false }
 }
 
-// Vérifie connexion + droit. Les employés lisent/écrivent dans les données de leur patron (ownerId).
 async function guard(params, level, req) {
   const me = await getUser()
   if (!me) return { res: bad('Non connecté.', 401) }
   if (!KINDS.includes(params.kind)) return { res: bad('Introuvable.', 404) }
-  // Liste « légère » des produits (pour les menus déroulants) : autorisée dès qu'on a accès aux ventes, pub ou charges
   const lite = params.kind === 'produits' && level === 'view' && new URL(req.url).searchParams.get('lite') === '1'
   const ok = lite ? ['produits', 'ventes', 'publicite', 'charges'].some((s) => can(me.perms, s)) : can(me.perms, params.kind, level)
   if (!ok) return { res: bad(level === 'edit' ? 'Vous n’avez pas le droit de modifier cette rubrique.' : 'Accès refusé à cette rubrique.', 403) }
@@ -49,7 +47,6 @@ async function tx(fn) {
   } finally { c.release() }
 }
 
-// ---------- Alerte de stock : crée / met à jour / efface la notification du produit ----------
 async function checkStock(c, uid, pid) {
   const { rows } = await c.query(
     `SELECT p.name, p.stock, p.is_active, COALESCE((SELECT low_stock_threshold FROM shops WHERE user_id = $1), 3) AS th
@@ -67,7 +64,6 @@ async function checkStock(c, uid, pid) {
   }
 }
 
-// ---------- Stock : on rend l'ancienne quantité, puis on retire la nouvelle (refus si insuffisant) ----------
 async function applyStock(c, uid, old, nw) {
   if (old?.product_id && OUT(old.status)) await c.query('UPDATE products SET stock = stock + $1 WHERE id = $2 AND user_id = $3', [old.quantity, old.product_id, uid])
   if (nw?.product_id && OUT(nw.status)) {
@@ -83,7 +79,6 @@ async function applyStock(c, uid, old, nw) {
   for (const pid of new Set([old?.product_id, nw?.product_id].filter(Boolean))) await checkStock(c, uid, pid)
 }
 
-// Produit rattaché à une pub / une charge (null = indépendante)
 async function productRef(c, uid, v) {
   if (v === '' || v == null || v === 'none') return null
   const id = pos(v)
@@ -101,10 +96,6 @@ function periodOf(sp) {
   return { from: null, to: null }
 }
 
-// ---------- Lecture ----------
-// ?period=today|yesterday|7d|30d|month|all  ou  ?from=AAAA-MM-JJ&to=AAAA-MM-JJ
-// ventes : &status=livree|en_cours|…  &product_id=12  &q=texte (client / téléphone)
-// pub, charges : &product_id=12 ou product_id=none (charges indépendantes)
 export async function GET(req, { params }) {
   const g = await guard(params, 'view', req)
   if (g.res) return g.res
@@ -125,9 +116,9 @@ export async function GET(req, { params }) {
       }
       const { rows } = await query(
         `SELECT p.id, p.name, p.sku, p.cost_xof AS cost, p.price_xof AS price, p.stock, p.is_active AS active,
-                COALESCE((SELECT SUM(quantity) FROM sales s WHERE s.product_id = p.id AND s.status NOT IN (${CANCELED_SQL})), 0)::int AS sold,
-                COALESCE((SELECT SUM(quantity * unit_price_xof) FROM sales s WHERE s.product_id = p.id AND s.status NOT IN (${CANCELED_SQL})), 0)::bigint AS revenue,
-                COALESCE((SELECT SUM(quantity * (unit_price_xof - unit_cost_xof)) FROM sales s WHERE s.product_id = p.id AND s.status NOT IN (${CANCELED_SQL})), 0)::bigint AS margin,
+                COALESCE((SELECT SUM(quantity) FROM sales s WHERE s.product_id = p.id AND s.status = 'livree'), 0)::int AS sold,
+                COALESCE((SELECT SUM(quantity * unit_price_xof) FROM sales s WHERE s.product_id = p.id AND s.status = 'livree'), 0)::bigint AS revenue,
+                COALESCE((SELECT SUM(quantity * (unit_price_xof - unit_cost_xof)) FROM sales s WHERE s.product_id = p.id AND s.status = 'livree'), 0)::bigint AS margin,
                 COALESCE((SELECT SUM(amount_xof) FROM ad_spends a WHERE a.product_id = p.id), 0)::bigint AS ads,
                 COALESCE((SELECT SUM(amount_xof) FROM expenses e WHERE e.product_id = p.id), 0)::bigint AS charges,
                 COALESCE((SELECT low_stock_threshold FROM shops WHERE user_id = $1), 3) AS threshold
@@ -168,7 +159,6 @@ export async function GET(req, { params }) {
   }
 }
 
-// ---------- Ajout ----------
 export async function POST(req, { params }) {
   const g = await guard(params, 'edit', req)
   if (g.res) return g.res
@@ -208,7 +198,7 @@ export async function POST(req, { params }) {
         }
         if (!name) throw new Bad('Choisissez ou saisissez un produit.')
         if (price === null || price <= 0) throw new Bad('Prix de vente invalide.')
-        await applyStock(c, uid, null, { product_id: pid, quantity: qty, status })   // refuse si stock insuffisant
+        await applyStock(c, uid, null, { product_id: pid, quantity: qty, status })
         await c.query(
           `INSERT INTO sales (user_id, product_id, product_name, quantity, unit_price_xof, unit_cost_xof, source, customer, customer_phone, payment_method, status, note, sold_on)
            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,COALESCE($13::date, (NOW() AT TIME ZONE 'UTC')::date))`,
@@ -239,7 +229,6 @@ export async function POST(req, { params }) {
   }
 }
 
-// ---------- Modification : ?id=123 — tous les champs sont modifiables (envoyer seulement ceux qui changent) ----------
 export async function PATCH(req, { params }) {
   const g = await guard(params, 'edit', req)
   if (g.res) return g.res
@@ -331,7 +320,6 @@ export async function PATCH(req, { params }) {
   }
 }
 
-// ---------- Suppression : ?id=123 ----------
 export async function DELETE(req, { params }) {
   const g = await guard(params, 'delete', req)
   if (g.res) return g.res
@@ -342,7 +330,7 @@ export async function DELETE(req, { params }) {
     await tx(async (c) => {
       if (params.kind === 'ventes') {
         const { rows } = await c.query('DELETE FROM sales WHERE id = $1 AND user_id = $2 RETURNING product_id, quantity, status', [rid, uid])
-        if (rows[0]) await applyStock(c, uid, rows[0], null)   // le produit retourne en stock
+        if (rows[0]) await applyStock(c, uid, rows[0], null)
       } else if (params.kind === 'produits') {
         const { rows } = await c.query(
           `SELECT (SELECT COUNT(*) FROM ad_spends WHERE product_id = $1)::int AS ads, (SELECT COUNT(*) FROM expenses WHERE product_id = $1)::int AS exp`, [rid])

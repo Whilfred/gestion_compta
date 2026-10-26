@@ -7,17 +7,18 @@ import { PERIODS, STATUS } from '../lib/constants'
 import { useFmt } from '../lib/privacy'
 import { day, dayLong, dec, delta, pct, ratio, weekday } from '../lib/format'
 
-const VS = { today: 'vs hier', yesterday: 'vs avant-hier', '7d': 'vs 7 jours précédents', '30d': 'vs 30 jours précédents', month: 'vs période précédente', custom: 'vs période précédente' }
+const VS = { today: 'vs hier', yesterday: 'vs avant-hier', '7d': 'vs 7 jours précédents', '30d': 'vs 30 jours précédents', month: 'vs période précédente', custom: 'vs période précédente', all: '' }
 
 const label = (d) => {
   const p = d.period
+  if (p === 'all') return 'Depuis le début · toutes les ventes livrées'
   if (p === 'today' || p === 'yesterday') return dayLong(d.from)
   return `Du ${day(d.from)} au ${day(d.to)}`
 }
 
 export default function Overview() {
   const { user } = useAuth()
-  const [period, setPeriod] = useState('today')
+  const [period, setPeriod] = useState('all')
   const [range, setRange] = useState({ from: '', to: '' })
   const [d, setD] = useState(null)
   const [err, setErr] = useState('')
@@ -46,6 +47,7 @@ export default function Overview() {
         </div>
         <div className="filters" style={{ marginBottom: 0 }}>
           <div className="seg" role="tablist" aria-label="Période">
+            <button role="tab" aria-selected={period === 'all'} onClick={() => setPeriod('all')}>Total</button>
             {PERIODS.map(([k, name]) => (
               <button key={k} role="tab" aria-selected={period === k} onClick={() => setPeriod(k)}>{name}</button>
             ))}
@@ -80,7 +82,7 @@ function Content({ d, on }) {
   const { xof, num, cnt, hidden } = useFmt()
   const { totals: t, prev: pv, shop } = d
   const vs = VS[d.period]
-  const empty = t.orders + t.returns + t.ads + t.expenses === 0
+  const empty = t.orders + t.pendingOrders + t.returns + t.ads + t.expenses === 0
   const nothingEver = empty && d.series.every((s) => s.orders === 0 && s.ads === 0 && s.expenses === 0)
   const roas = ratio(t.revenue, t.ads)
   const goalPct = pct(shop.monthRevenue, shop.goal)
@@ -147,9 +149,9 @@ function Content({ d, on }) {
       )}
 
       <div className="kpis">
-        <div className="kpi"><span>Chiffre d’affaires total</span><b>{xof(t.revenue)}</b><Delta cur={t.revenue} prev={pv.revenue} vs={vs} />{t.pending > 0 && <small>dont {xof(t.pending)} pas encore livrés</small>}</div>
-        <div className="kpi"><span>Ventes (commandes)</span><b>{cnt(t.orders)}</b><Delta cur={t.orders} prev={pv.orders} vs={vs} />{t.returns > 0 && <small>{cnt(t.returns)} retour{t.returns > 1 ? 's' : ''} / non livrée{t.returns > 1 ? 's' : ''} ({xof(t.returnsAmount)})</small>}</div>
-        <div className="kpi"><span>Articles vendus</span><b>{cnt(t.units)}</b><Delta cur={t.units} prev={pv.units} vs={vs} /></div>
+        <div className="kpi"><span>Chiffre d’affaires{d.period === 'all' ? ' total' : ''}</span><b>{xof(t.revenue)}</b><Delta cur={t.revenue} prev={pv.revenue} vs={vs} /><small>ventes livrées uniquement{t.pending > 0 ? ` · ${xof(t.pending)} en attente de livraison (non compté)` : ''}</small></div>
+        <div className="kpi"><span>Ventes livrées</span><b>{cnt(t.orders)}</b><Delta cur={t.orders} prev={pv.orders} vs={vs} />{t.returns > 0 && <small>{cnt(t.returns)} retour{t.returns > 1 ? 's' : ''} / non livrée{t.returns > 1 ? 's' : ''} ({xof(t.returnsAmount)})</small>}</div>
+        <div className="kpi"><span>Articles livrés</span><b>{cnt(t.units)}</b><Delta cur={t.units} prev={pv.units} vs={vs} /></div>
         <div className="kpi"><span>Dépenses totales</span><b>{xof(t.cogs + t.ads + t.expenses)}</b><small>produits {xof(t.cogs)} · pub {xof(t.ads)} · charges {xof(t.expenses)}</small></div>
         <div className="kpi"><span>Bénéfice brut</span><b>{xof(t.gross)}</b><small>avant pub et charges</small></div>
         <div className="kpi"><span>Livraisons</span><b>{cnt(st.livree)} livrée{st.livree > 1 ? 's' : ''}</b><small>{cnt(st.en_attente)} en attente · {cnt(st.en_cours)} en cours · {cnt(st.non_livree)} non livrée{st.non_livree > 1 ? 's' : ''} · {cnt(st.retour)} retour{st.retour > 1 ? 's' : ''}</small></div>
