@@ -11,7 +11,8 @@ export const metadata = {
 // ───────── Fond du hero ─────────
 // Meilleure qualité : déposez vos fichiers dans /public (hero.mp4 + hero.jpg en 2400 px de large).
 // HERO_HD est essayée en premier ; si elle ne charge pas, HERO_IMAGE (déjà utilisée) reste visible dessous.
-const HERO_VIDEO = '/hero.mp4'
+// Vidéo 1 (fond du hero). Le fichier local /hero.mp4 sert de secours si le lien Pixabay est bloqué.
+const HERO_VIDEOS = ['https://pixabay.com/fr/videos/download/video-371389_medium.mp4', '/hero.mp4']
 const HERO_IMAGE = 'https://i.pinimg.com/1200x/21/d7/c2/21d7c2397970989b91e16ef62183c811.jpg'
 const HERO_HD = 'https://i.pinimg.com/originals/21/d7/c2/21d7c2397970989b91e16ef62183c811.jpg'
 
@@ -25,7 +26,8 @@ const BENTO = [
 ]
 
 // Vidéo de démonstration (section avant la grille). Déposez demo.mp4 dans /public.
-const DEMO_VIDEO = '/demo.mp4'
+// Vidéo 2 (section « En vidéo »). /demo.mp4 sert de secours si le lien Pixabay est bloqué.
+const DEMO_VIDEOS = ['https://pixabay.com/fr/videos/download/video-191151_medium.mp4', '/demo.mp4']
 // Capture d'écran facultative de votre vrai tableau de bord : déposez apercu.png dans /public.
 // Si elle existe, elle remplace automatiquement la maquette ci-dessous.
 const APERCU = '/apercu.png'
@@ -215,7 +217,9 @@ export default function Home() {
       <section className="hero-wrap">
         <div className="hero-bg" aria-hidden="true">
           <div className="pic" />
-          <video src={HERO_VIDEO} poster={HERO_IMAGE} autoPlay muted loop playsInline preload="auto" />
+          <video poster={HERO_IMAGE} autoPlay muted loop playsInline preload="auto">
+            {HERO_VIDEOS.map((s) => <source key={s} src={s} type="video/mp4" />)}
+          </video>
           <div className="shade" />
         </div>
 
@@ -339,7 +343,9 @@ export default function Home() {
         </Reveal>
         <Reveal delay={80}>
           <div className="vid-frame">
-            <video src={DEMO_VIDEO} poster={HERO_IMAGE} controls playsInline preload="metadata" />
+            <video poster={HERO_IMAGE} controls playsInline preload="metadata">
+              {DEMO_VIDEOS.map((s) => <source key={s} src={s} type="video/mp4" />)}
+            </video>
           </div>
         </Reveal>
       </section>
