@@ -12,7 +12,38 @@ export const metadata = {
 // Meilleure qualité : déposez vos fichiers dans /public (hero.mp4 + hero.jpg en 2400 px de large).
 // HERO_HD est essayée en premier ; si elle ne charge pas, HERO_IMAGE (déjà utilisée) reste visible dessous.
 // Vidéo 1 (fond du hero). Le fichier local /hero.mp4 sert de secours si le lien Pixabay est bloqué.
-const HERO_VIDEOS = ['https://pixabay.com/fr/videos/download/video-371389_medium.mp4', '/hero.mp4']
+// Liste des vidéos de fond, jouées l'une après l'autre en fondu enchaîné.
+// Ajoutez autant de fichiers que vous voulez dans /public ; ceux qui n'existent pas sont ignorés.
+const HERO_VIDEOS = ['/hero.mp4', '/demo.mp4', '/hero3.mp4', '/hero4.mp4', '/hero5.mp4']
+
+// Petit script qui enchaîne les vidéos (sans nouveau fichier). Sans JavaScript, la 1re vidéo tourne en boucle.
+const HERO_JS = `
+(function(){
+var box=document.getElementById('hero-vids');if(!box)return;
+var all=JSON.parse(box.getAttribute('data-list')||'[]');
+var a=box.children[0],b=box.children[1];
+function ok(s){return fetch(s,{method:'HEAD'}).then(function(r){return r.ok?s:null}).catch(function(){return null})}
+Promise.all(all.map(ok)).then(function(r){
+  var list=r.filter(Boolean);if(list.length<2)return;
+  var cur=a,nxt=b,i=1,busy=false;
+  [a,b].forEach(function(v){v.muted=true;v.loop=false;});
+  function src(v,s){v.src=s;v.load();}
+  function go(v){var p=v.play();if(p&&p.catch)p.catch(function(){});}
+  if(a.getAttribute('src')!==list[0]){src(a,list[0]);go(a);}
+  src(b,list[1]);
+  function swap(){
+    if(busy)return;busy=true;
+    nxt.currentTime=0;go(nxt);nxt.classList.add('on');cur.classList.remove('on');
+    var old=cur;cur=nxt;nxt=old;i=(i+1)%list.length;
+    setTimeout(function(){old.pause();src(old,list[i]);busy=false;},1600);
+  }
+  [a,b].forEach(function(v){
+    v.addEventListener('timeupdate',function(){if(v===cur&&v.duration&&v.duration-v.currentTime<1.2)swap();});
+    v.addEventListener('ended',function(){if(v===cur)swap();});
+  });
+});
+})();
+`
 const HERO_IMAGE = 'https://i.pinimg.com/1200x/21/d7/c2/21d7c2397970989b91e16ef62183c811.jpg'
 const HERO_HD = 'https://i.pinimg.com/originals/21/d7/c2/21d7c2397970989b91e16ef62183c811.jpg'
 
@@ -27,10 +58,26 @@ const BENTO = [
 
 // Vidéo de démonstration (section avant la grille). Déposez demo.mp4 dans /public.
 // Vidéo 2 (section « En vidéo »). /demo.mp4 sert de secours si le lien Pixabay est bloqué.
-const DEMO_VIDEOS = ['https://pixabay.com/fr/videos/download/video-191151_medium.mp4', '/demo.mp4']
+const DEMO_VIDEOS = ['/demo.mp4', 'https://pixabay.com/fr/videos/download/video-191151_medium.mp4']
 // Capture d'écran facultative de votre vrai tableau de bord : déposez apercu.png dans /public.
 // Si elle existe, elle remplace automatiquement la maquette ci-dessous.
 const APERCU = '/apercu.png'
+
+// Lecture automatique de la vidéo du bas quand elle apparaît à l'écran (sans son, pause quand on la quitte).
+const DEMO_JS = `
+(function(){
+var v=document.getElementById('demo-vid');
+if(!v||!('IntersectionObserver' in window))return;
+v.muted=true;
+var io=new IntersectionObserver(function(entries){
+  entries.forEach(function(e){
+    if(e.isIntersecting){var p=v.play();if(p&&p.catch)p.catch(function(){});}
+    else{v.pause();}
+  });
+},{threshold:0.5});
+io.observe(v);
+})();
+`
 
 const CANAUX = ['WhatsApp', 'Facebook', 'Mobile money', 'Montants en FCFA', 'Ventes livrées', 'Stock en temps réel', 'Pub par produit', 'Mode discret', 'Équipe et droits', 'Sauvegarde']
 
@@ -38,26 +85,28 @@ const HERO_CSS = `
 /* ===== HERO ===== */
 .hero-wrap{position:relative;min-height:100svh;display:flex;flex-direction:column;color:#fff;overflow:hidden;isolation:isolate}
 .hero-bg{position:absolute;inset:0;z-index:-1;background:#0b1220}
-.hero-bg .pic{position:absolute;inset:0;background-image:url('${HERO_HD}'),url('${HERO_IMAGE}');background-size:cover,cover;background-position:center,center;animation:kb 28s ease-in-out infinite alternate;will-change:transform}
+.hero-bg .pic{position:absolute;inset:0;background-image:url('${HERO_HD}'),url('${HERO_IMAGE}');background-size:cover,cover;background-position:center,center}
 @keyframes kb{from{transform:scale(1)}to{transform:scale(1.07)}}
-.hero-bg video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-.hero-bg .shade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(5,10,20,.35) 0%,rgba(5,10,20,0) 30%,rgba(5,10,20,.25) 70%,#050a14 100%)}
+#hero-vids{position:absolute;inset:0}
+.hero-bg video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity 1.4s ease}
+.hero-bg video.on{opacity:1}
+.hero-bg .shade{position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,rgba(5,10,20,.18) 0%,rgba(5,10,20,0) 22%,rgba(5,10,20,0) 80%,#050a14 100%)}
 @media (prefers-reduced-motion:reduce){.hero-bg video{display:none}.hero-bg .pic{animation:none}}
 
 .glass-head{position:absolute;top:14px;left:0;right:0;z-index:20;padding:0 clamp(12px,3vw,40px)}
-.glass-head-in{max-width:1200px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:8px 12px 8px 18px;border-radius:999px;background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.22);-webkit-backdrop-filter:blur(18px) saturate(160%);backdrop-filter:blur(18px) saturate(160%);box-shadow:0 8px 30px rgba(0,0,0,.18)}
+.glass-head-in{max-width:1200px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:8px 12px 8px 18px;border-radius:999px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.2);-webkit-backdrop-filter:blur(8px) saturate(140%);backdrop-filter:blur(8px) saturate(140%);box-shadow:0 8px 30px rgba(0,0,0,.12)}
 .glass-nav{display:flex;gap:6px}
 .glass-nav a{color:rgba(255,255,255,.9);text-decoration:none;font-weight:500;font-size:.95rem;padding:8px 14px;border-radius:999px;transition:background .2s}
 .glass-nav a:hover{background:rgba(255,255,255,.16)}
 @media (max-width:900px){.glass-nav{display:none}}
 
 .hero-center{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:120px clamp(16px,4vw,40px) 90px;gap:18px}
-.glass-tag{display:inline-block;font-size:.82rem;letter-spacing:.02em;padding:7px 14px;border-radius:999px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
-.hero-center h1{margin:0;max-width:16ch;font-weight:800;line-height:1.05;letter-spacing:-.02em;font-size:clamp(2.2rem,6.5vw,5rem);color:#fff;text-shadow:0 4px 30px rgba(0,0,0,.45)}
+.glass-tag{display:inline-block;font-size:.82rem;letter-spacing:.02em;padding:7px 14px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.25);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+.hero-center h1{margin:0;max-width:16ch;font-weight:800;line-height:1.05;letter-spacing:-.02em;font-size:clamp(2.2rem,6.5vw,5rem);color:#fff;text-shadow:0 2px 6px rgba(0,0,0,.35),0 6px 40px rgba(0,0,0,.55)}
 .hero-center h1 em{font-style:normal;color:rgba(255,255,255,.75);font-weight:600}
 .hero-center .hero-sub{margin:0;max-width:56ch;font-size:clamp(1rem,2vw,1.25rem);color:rgba(255,255,255,.88);text-shadow:0 2px 16px rgba(0,0,0,.5)}
 
-.hero-prompt{width:min(760px,100%);margin-top:10px;display:flex;align-items:center;gap:12px;padding:8px 8px 8px 10px;border-radius:999px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.30);-webkit-backdrop-filter:blur(20px) saturate(170%);backdrop-filter:blur(20px) saturate(170%);box-shadow:0 20px 60px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.25)}
+.hero-prompt{width:min(760px,100%);margin-top:10px;display:flex;align-items:center;gap:12px;padding:8px 8px 8px 10px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.28);-webkit-backdrop-filter:blur(8px) saturate(140%);backdrop-filter:blur(8px) saturate(140%);box-shadow:0 20px 60px rgba(0,0,0,.18),inset 0 1px 0 rgba(255,255,255,.25)}
 .hero-thumb{flex:none;width:54px;height:38px;border-radius:999px;border:1px solid rgba(255,255,255,.35);background:url('${HERO_IMAGE}') center/cover,linear-gradient(135deg,#3b82f6,#0ea5e9)}
 .hero-bar{flex:none;width:1px;height:22px;background:rgba(255,255,255,.5)}
 .hero-typed{flex:1;min-width:0;text-align:left;font-size:.98rem;color:rgba(255,255,255,.92);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -66,7 +115,7 @@ const HERO_CSS = `
 @media (max-width:560px){.hero-thumb,.hero-bar{display:none}.hero-go{padding:12px 18px}}
 
 .hero-chips{list-style:none;margin:6px 0 0;padding:0;display:flex;flex-wrap:wrap;justify-content:center;gap:8px}
-.hero-chips li{font-size:.85rem;padding:6px 12px;border-radius:999px;background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.2);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+.hero-chips li{font-size:.85rem;padding:6px 12px;border-radius:999px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.2);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
 
 /* ===== Bandeau défilant ===== */
 .mq{background:#050a14;border-top:1px solid rgba(255,255,255,.08);border-bottom:1px solid rgba(255,255,255,.08);overflow:hidden;padding:16px 0;-webkit-mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent);mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent)}
@@ -217,9 +266,10 @@ export default function Home() {
       <section className="hero-wrap">
         <div className="hero-bg" aria-hidden="true">
           <div className="pic" />
-          <video poster={HERO_IMAGE} autoPlay muted loop playsInline preload="auto">
-            {HERO_VIDEOS.map((s) => <source key={s} src={s} type="video/mp4" />)}
-          </video>
+          <div id="hero-vids" data-list={JSON.stringify(HERO_VIDEOS)}>
+            <video className="on" src={HERO_VIDEOS[0]} poster={HERO_IMAGE} autoPlay muted loop playsInline preload="auto" />
+            <video muted playsInline preload="auto" />
+          </div>
           <div className="shade" />
         </div>
 
@@ -256,6 +306,8 @@ export default function Home() {
           </ul>
         </div>
       </section>
+
+      <script dangerouslySetInnerHTML={{ __html: HERO_JS }} />
 
       <div className="mq" aria-hidden="true">
         <div className="mq-track">
@@ -343,12 +395,14 @@ export default function Home() {
         </Reveal>
         <Reveal delay={80}>
           <div className="vid-frame">
-            <video poster={HERO_IMAGE} controls playsInline preload="metadata">
+            <video id="demo-vid" poster={HERO_IMAGE} controls muted loop playsInline preload="auto">
               {DEMO_VIDEOS.map((s) => <source key={s} src={s} type="video/mp4" />)}
             </video>
           </div>
         </Reveal>
       </section>
+
+      <script dangerouslySetInnerHTML={{ __html: DEMO_JS }} />
 
       <section className="bento-sec" aria-label="Points forts">
         <div className="bento">
