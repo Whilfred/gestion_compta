@@ -100,13 +100,13 @@ const HERO_CSS = `
 .glass-nav a:hover{background:rgba(255,255,255,.16)}
 @media (max-width:900px){.glass-nav{display:none}}
 
-.hero-center{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:120px clamp(16px,4vw,40px) 90px;gap:18px}
+.hero-center{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;text-align:center;padding:120px clamp(16px,4vw,40px) 104px;gap:20px}
 .glass-tag{display:inline-block;font-size:.82rem;letter-spacing:.02em;padding:7px 14px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.25);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
-.hero-center h1{margin:0;max-width:16ch;font-weight:800;line-height:1.05;letter-spacing:-.02em;font-size:clamp(2.2rem,6.5vw,5rem);color:#fff;text-shadow:0 2px 6px rgba(0,0,0,.35),0 6px 40px rgba(0,0,0,.55)}
-.hero-center h1 em{font-style:normal;color:rgba(255,255,255,.75);font-weight:600}
+.hero-center h1{margin:0;max-width:20ch;font-weight:800;line-height:1.04;letter-spacing:-.025em;font-size:clamp(2.4rem,7vw,5.6rem);color:#fff;text-shadow:0 2px 6px rgba(0,0,0,.35),0 6px 40px rgba(0,0,0,.55)}
+.hero-center h1 em{display:block;font-style:normal;color:rgba(255,255,255,.78);font-weight:600}
 .hero-center .hero-sub{margin:0;max-width:56ch;font-size:clamp(1rem,2vw,1.25rem);color:rgba(255,255,255,.88);text-shadow:0 2px 16px rgba(0,0,0,.5)}
 
-.hero-prompt{width:min(760px,100%);margin-top:10px;display:flex;align-items:center;gap:12px;padding:8px 8px 8px 10px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.28);-webkit-backdrop-filter:blur(8px) saturate(140%);backdrop-filter:blur(8px) saturate(140%);box-shadow:0 20px 60px rgba(0,0,0,.18),inset 0 1px 0 rgba(255,255,255,.25)}
+.hero-prompt{width:min(820px,100%);margin-top:14px;display:flex;align-items:center;gap:12px;padding:8px 8px 8px 10px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.28);-webkit-backdrop-filter:blur(8px) saturate(140%);backdrop-filter:blur(8px) saturate(140%);box-shadow:0 20px 60px rgba(0,0,0,.18),inset 0 1px 0 rgba(255,255,255,.25)}
 .hero-thumb{flex:none;width:54px;height:38px;border-radius:999px;border:1px solid rgba(255,255,255,.35);background:url('${HERO_IMAGE}') center/cover,linear-gradient(135deg,#3b82f6,#0ea5e9)}
 .hero-bar{flex:none;width:1px;height:22px;background:rgba(255,255,255,.5)}
 .hero-typed{flex:1;min-width:0;text-align:left;font-size:.98rem;color:rgba(255,255,255,.92);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -116,6 +116,12 @@ const HERO_CSS = `
 
 .hero-chips{list-style:none;margin:6px 0 0;padding:0;display:flex;flex-wrap:wrap;justify-content:center;gap:8px}
 .hero-chips li{font-size:.85rem;padding:6px 12px;border-radius:999px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.2);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+
+/* Indicateur "défiler" */
+.hero-scroll{position:absolute;left:50%;bottom:22px;transform:translateX(-50%);z-index:10;width:42px;height:42px;border-radius:50%;display:grid;place-items:center;color:#fff;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.3);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);text-decoration:none}
+.hero-scroll svg{width:20px;height:20px;animation:nudge 1.8s ease-in-out infinite}
+@keyframes nudge{0%,100%{transform:translateY(-2px)}50%{transform:translateY(4px)}}
+@media (prefers-reduced-motion:reduce){.hero-scroll svg{animation:none}}
 
 /* ===== Bandeau défilant ===== */
 .mq{background:#050a14;border-top:1px solid rgba(255,255,255,.08);border-bottom:1px solid rgba(255,255,255,.08);overflow:hidden;padding:16px 0;-webkit-mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent);mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent)}
@@ -288,7 +294,6 @@ export default function Home() {
         </header>
 
         <div className="hero-center">
-          <span className="glass-tag">Pour les e-commerçants · montants en FCFA</span>
           <h1>La compta de votre boutique, <em>jour après jour.</em></h1>
           <p className="hero-sub">Ventes livrées, bénéfice net par produit, stock, clients, pub et charges : voyez en un coup d’œil ce qu’il vous reste vraiment dans la poche.</p>
 
@@ -305,6 +310,10 @@ export default function Home() {
             <li>Vos données, sauvegardables</li>
           </ul>
         </div>
+
+        <a href="#apercu" className="hero-scroll" aria-label="Voir la suite">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
+        </a>
       </section>
 
       <script dangerouslySetInnerHTML={{ __html: HERO_JS }} />
@@ -315,7 +324,7 @@ export default function Home() {
         </div>
       </div>
 
-      <section className="show" aria-label="Aperçu de l’application">
+      <section className="show" id="apercu" aria-label="Aperçu de l’application">
         <Reveal>
           <div className="show-head">
             <span className="k">Aperçu</span>
